@@ -26,8 +26,6 @@ cd wuthering-waves-downloader
 cargo build --release
 ```
 
-> feel free to open a pull request if you want to improve anything (i'm tired and can't do this shit anymore 😭)
-
 ## 🌟 Key Features
 
 ### 🚀 Download Management
