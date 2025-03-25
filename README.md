@@ -25,10 +25,6 @@ cd wuthering-waves-downloader
 ```bash
 cargo build --release
 ```
-- **Run the downloader:**
-```bash
-cargo run --release # (or run the built executable inside target/release/)
-```
 
 ### 🆕 What's New
 - **Multi-CDN Support** - Automatically tries all available CDNs for each download
