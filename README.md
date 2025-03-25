@@ -9,18 +9,19 @@
 - **Rust nightly toolchain** - 1.87.0-nightly or newer
 - **Windows** - for full console feature support
 
-Install the nightly toolchain with:
+### 🛠️ Installation & Usage
+- **Install the nightly toolchain:**
 ```bash
 rustup toolchain install nightly
 rustup default nightly
 ```
 
-### 🛠️ Installation & Usage
 - **Clone the repository:**
 ```bash
 git clone https://github.com/yourusername/wuthering-waves-downloader.git
 cd wuthering-waves-downloader
 ```
+
 - **Build the project:**
 ```bash
 cargo build --release
