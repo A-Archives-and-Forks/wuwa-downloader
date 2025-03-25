@@ -26,16 +26,7 @@ cd wuthering-waves-downloader
 cargo build --release
 ```
 
-### 🆕 What's New
-- **Multi-CDN Support** - Automatically tries all available CDNs for each download
-
-- **Version Selection** - Choose between Live/Beta and CN/OS versions
-
-- **GZIP Compression** - Full support for compressed responses
-
-- **Enhanced Progress Tracking** - Cleaner UI with progress in window title
-
-- **Improved Reliability** - Better error handling and recovery
+> feel free to open a pull request if you want to improve anything (i'm tired and can't do this shit anymore 😭)
 
 ## 🌟 Key Features
 
