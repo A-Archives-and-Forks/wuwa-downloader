@@ -2,6 +2,8 @@
 
 *A high-performance, reliable downloader for Wuthering Waves with multi-CDN support and verification*
 
+> Feel free to open Pull requests if you want to contribute with improvements!
+
 [![Rust](https://img.shields.io/badge/Rust-1.87.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
