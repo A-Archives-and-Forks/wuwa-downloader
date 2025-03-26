@@ -2,6 +2,8 @@
 
 *A high-performance, reliable downloader for Wuthering Waves with multi-CDN support and verification*
 
+> Feel free to open Pull requests if you want to contribute with improvements!
+
 [![Rust](https://img.shields.io/badge/Rust-1.87.0--nightly-orange?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
@@ -9,24 +11,23 @@
 - **Rust nightly toolchain** - 1.87.0-nightly or newer
 - **Windows** - for full console feature support
 
-Install the nightly toolchain with:
+### 🛠️ Installation & Usage
+- **Install the nightly toolchain:**
 ```bash
 rustup toolchain install nightly
 rustup default nightly
 ```
 
-### 🛠️ Installation & Usage
 - **Clone the repository:**
 ```bash
 git clone https://github.com/yourusername/wuthering-waves-downloader.git
 cd wuthering-waves-downloader
 ```
+
 - **Build the project:**
 ```bash
 cargo build --release
 ```
-
-> feel free to open a pull request if you want to improve anything (i'm tired and can't do this shit anymore 😭)
 
 ## 🌟 Key Features
 
