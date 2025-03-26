@@ -2,7 +2,7 @@ use colored::Colorize;
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::{from_reader, from_str, Value};
-use winconsole::console;
+use winconsole::console::{self};
 use std::{io::{Read, Write}, fs, io, path::Path, time::Duration};
 
 use crate::config::cfg::Config;
@@ -137,7 +137,7 @@ pub fn download_file(
 
     if let (Some(md5), Some(size)) = (expected_md5, file_size) {
         if should_skip_download(&path, Some(md5), Some(size)) {
-            println!("{} File is valid: {}", Status::matched(), filename.blue());
+            println!("{} File is valid: {}", Status::matched(), filename.bright_purple());
             return true;
         }
     }
@@ -172,12 +172,12 @@ pub fn download_file(
 
         if let (Some(md5), Some(size)) = (expected_md5, expected_size) {
             if check_existing_file(&path, Some(md5), Some(size)) {
-                println!("{} File is valid: {}", Status::matched(), filename.blue());
+                println!("{} File is valid: {}", Status::matched(), filename.bright_purple());
                 return true;
             }
         }
 
-        println!("{} Downloading: {}", Status::progress(), filename.magenta());
+        println!("{} Downloading: {}", Status::progress(), filename.purple());
 
         let mut retries = MAX_RETRIES;
         let mut last_error = None;

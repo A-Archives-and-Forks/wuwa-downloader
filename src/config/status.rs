@@ -9,6 +9,6 @@ impl Status {
     pub fn warning() -> ColoredString { "[!]".yellow() }
     pub fn error() -> ColoredString { "[-]".red() }
     pub fn question() -> ColoredString { "[?]".blue() }
-    pub fn progress() -> ColoredString { "[→]".magenta() }
-    pub fn matched() -> ColoredString { "[↓]".blue() }
+    pub fn progress() -> ColoredString { "[→]".purple() }
+    pub fn matched() -> ColoredString { "[↓]".bright_purple() }
 }
