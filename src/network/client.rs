@@ -115,13 +115,23 @@ pub fn download_file(
     should_stop: &std::sync::atomic::AtomicBool,
     progress: &DownloadProgress,
 ) -> bool {
+    if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+        return false;
+    }
+
     let dest = dest.replace('\\', "/");
     let path = folder.join(&dest);
     let filename = get_filename(&dest);
 
     let mut file_size = None;
+
     for base_url in &config.zip_bases {
+        if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+            return false;
+        }
+
         let url = format!("{}{}", base_url, dest);
+
         if let Ok(head_response) = client.head(&url).timeout(Duration::from_secs(10)).send() {
             if let Some(size) = head_response.headers()
                 .get("content-length")
@@ -188,6 +198,10 @@ pub fn download_file(
             match result {
                 Ok(_) => break,
                 Err(e) => {
+                    if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+                        return false;
+                    }
+
                     last_error = Some(e);
                     retries -= 1;
                     let _ = fs::remove_file(&path);
@@ -198,6 +212,10 @@ pub fn download_file(
                     }
                 }
             }
+        }
+
+        if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+            return false;
         }
 
         if retries == 0 {

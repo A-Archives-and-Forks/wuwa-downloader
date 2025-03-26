@@ -15,7 +15,9 @@ use wuwa_downloader::{
     io::{
         console::print_results,
         file::get_dir,
-        logging::{bytes_to_human, format_duration, log_error, setup_logging, calculate_total_size},
+        logging::{
+            bytes_to_human, calculate_total_size, format_duration, log_error, setup_logging,
+        },
     },
     network::client::{download_file, fetch_index, get_predownload},
 };
@@ -137,52 +139,11 @@ fn main() {
     });
 
     let should_stop_ctrlc = should_stop.clone();
-    let success_ctrlc = success.clone();
-    let folder_ctrlc = folder.clone();
-    let log_file_ctrlc = log_file.try_clone().unwrap();
 
     ctrlc::set_handler(move || {
         should_stop_ctrlc.store(true, std::sync::atomic::Ordering::SeqCst);
-
         clear().unwrap();
-        println!("{} Download interrupted by user", Status::warning());
-        let success_count = success_ctrlc.load(std::sync::atomic::Ordering::SeqCst);
-
-        let title = if success_count == total_files {
-            " DOWNLOAD COMPLETE ".on_blue().white().bold()
-        } else {
-            " PARTIAL DOWNLOAD ".on_blue().white().bold()
-        };
-
-        println!("\n{}\n", title);
-        println!(
-            "{} Successfully downloaded: {}",
-            Status::success(),
-            success_count.to_string().green()
-        );
-        println!(
-            "{} Failed downloads: {}",
-            Status::error(),
-            (total_files - success_count).to_string().red()
-        );
-        println!(
-            "{} Files saved to: {}",
-            Status::info(),
-            folder_ctrlc.display().to_string().cyan()
-        );
-        println!("\n{} Press Enter to exit...", Status::warning());
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        log_error(
-            &log_file_ctrlc,
-            &format!(
-                "Download interrupted by user. Success: {}/{}",
-                success_count, total_files
-            ),
-        );
-        std::process::exit(0);
+        println!("\n{} Download interrupted by user", Status::warning());
     })
     .unwrap();
 
