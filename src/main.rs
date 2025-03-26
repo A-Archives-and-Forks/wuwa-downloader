@@ -123,7 +123,7 @@ fn main() {
             };
 
             let title = format!(
-                "Wuthering Waves Downloader - {}/{} files - {}{} - Speed: {}{} - Total ETA: {}",
+                "Wuthering Waves Downloader - {}/{} files - Current File: {}{} - Speed: {}{} - Total ETA: {}",
                 current_success,
                 total_files,
                 bytes_to_human(downloaded_bytes),
