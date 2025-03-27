@@ -8,7 +8,7 @@ use std::{io::{Read, Write}, fs, io, path::Path, time::Duration};
 use crate::config::cfg::Config;
 use crate::download::progress::DownloadProgress;
 use crate::io::file::{calculate_md5, check_existing_file, get_filename};
-use crate::io::logging::log_error;
+use crate::io::{logging::log_error, util::get_version};
 use crate::config::status::Status;
 
 const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/30a8e747debe9e333d5f4ec5d8700dab500594a2/wuwa.json";
@@ -428,18 +428,11 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
         io::stdin().read_line(&mut input).unwrap();
 
         match input.trim() {
-            "1" => return get_version_url(&gist_data, "live", "os-live"),
-            "2" => return get_version_url(&gist_data, "live", "cn-live"),
-            "3" => return get_version_url(&gist_data, "beta", "os-beta"),
-            "4" => return get_version_url(&gist_data, "beta", "cn-beta"),
+            "1" => return get_version(&gist_data, "live", "os-live"),
+            "2" => return get_version(&gist_data, "live", "cn-live"),
+            "3" => return get_version(&gist_data, "beta", "os-beta"),
+            "4" => return get_version(&gist_data, "beta", "cn-beta"),
             _ => println!("{} Invalid selection", Status::error()),
         }
     }
-}
-
-fn get_version_url(data: &Value, category: &str, version: &str) -> Result<String, String> {
-    data[category][version]
-        .as_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| format!("Missing {} URL", version))
 }

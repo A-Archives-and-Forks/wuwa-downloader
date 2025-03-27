@@ -15,8 +15,9 @@ use wuwa_downloader::{
     io::{
         console::print_results,
         file::get_dir,
+        util::{bytes_to_human, format_duration, calculate_total_size},
         logging::{
-            bytes_to_human, calculate_total_size, format_duration, log_error, setup_logging,
+            log_error, setup_logging,
         },
     },
     network::client::{download_file, fetch_index, get_predownload},
