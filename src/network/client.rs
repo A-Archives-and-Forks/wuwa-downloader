@@ -291,7 +291,7 @@ fn download_single_file(
     Ok(())
 }
 
-pub fn get_predownload(client: &Client) -> Result<Config, String> {
+pub fn get_config(client: &Client) -> Result<Config, String> {
     let selected_index_url = fetch_gist(client)?;
     println!("{} Fetching download configuration...", Status::info());
 
@@ -327,26 +327,57 @@ pub fn get_predownload(client: &Client) -> Result<Config, String> {
         from_reader(response).map_err(|e| format!("Invalid JSON: {}", e))?
     };
 
-    let predownload_config = config
-        .get("predownload")
-        .and_then(|p| p.get("config"))
-        .ok_or("Missing predownload.config in response")?;
+    let has_default = config.get("default").is_some();
+    let has_predownload = config.get("predownload").is_some();
 
-    let base_url = predownload_config
+    let selected_config = match (has_default, has_predownload) {
+        (true, false) => {
+            println!("{} Using default.config", Status::info());
+            "default"
+        }
+        (false, true) => {
+            println!("{} Using predownload.config", Status::info());
+            "predownload"
+        }
+        (true, true) => {
+            loop {
+                print!("{} Choose config to use (1=default, 2=predownload): ", Status::question());
+                io::stdout().flush().map_err(|e| format!("Failed to flush stdout: {}", e))?;
+                
+                let mut input = String::new();
+                io::stdin()
+                    .read_line(&mut input)
+                    .map_err(|e| format!("Failed to read input: {}", e))?;
+                
+                match input.trim() {
+                    "1" => break "default",
+                    "2" => break "predownload",
+                    _ => println!("{} Invalid choice, please enter 1 or 2", Status::error()),
+                }
+            }
+        }
+        (false, false) => return Err("Neither default.config nor predownload.config found in response".to_string()),
+    };
+
+    let config_data = config
+        .get(selected_config)
+        .ok_or_else(|| format!("Missing {} config in response", selected_config))?;
+
+    let base_config = config_data
+        .get("config")
+        .ok_or_else(|| format!("Missing config in {} response", selected_config))?;
+
+    let base_url = base_config
         .get("baseUrl")
         .and_then(Value::as_str)
         .ok_or("Missing or invalid baseUrl")?;
 
-    let index_file = predownload_config
+    let index_file = base_config
         .get("indexFile")
         .and_then(Value::as_str)
         .ok_or("Missing or invalid indexFile")?;
 
-    let default_config = config
-        .get("default")
-        .ok_or("Missing default config in response")?;
-
-    let cdn_list = default_config
+    let cdn_list = config_data
         .get("cdnList")
         .and_then(Value::as_array)
         .ok_or("Missing or invalid cdnList")?;
