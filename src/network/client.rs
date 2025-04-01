@@ -11,7 +11,7 @@ use crate::io::file::{calculate_md5, check_existing_file, get_filename};
 use crate::io::{logging::log_error, util::get_version};
 use crate::config::status::Status;
 
-const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/30a8e747debe9e333d5f4ec5d8700dab500594a2/wuwa.json";
+const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/4435fd290c07f7f766a6d2ab09ed3096d83b02e3/wuwa.json";
 const MAX_RETRIES: usize = 3;
 const DOWNLOAD_TIMEOUT: u64 = 300;
 const BUFFER_SIZE: usize = 8192;
@@ -446,10 +446,10 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
     };
 
     println!("{} Available versions:", Status::info());
-    println!("1. Preload - OS");
-    println!("2. Live - CN (Needs Update)");
-    println!("3. Beta - OS (Needs Update)");
-    println!("4. Beta - CN (Needs Update)");
+    println!("1. Live - OS");
+    println!("2. Live - CN");
+    println!("3. Beta - OS");
+    println!("4. Beta - CN");
 
     loop {
         print!("{} Select version: ", Status::question());
@@ -459,10 +459,10 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
         io::stdin().read_line(&mut input).unwrap();
 
         match input.trim() {
-            "1" => return get_version(&gist_data, "live", "os-live"),
-            "2" => return get_version(&gist_data, "live", "cn-live"),
-            "3" => return get_version(&gist_data, "beta", "os-beta"),
-            "4" => return get_version(&gist_data, "beta", "cn-beta"),
+            "1" => return get_version(&gist_data, "live", "os"),
+            "2" => return get_version(&gist_data, "live", "cn"),
+            "3" => return get_version(&gist_data, "beta", "os"),
+            "4" => return get_version(&gist_data, "beta", "cn"),
             _ => println!("{} Invalid selection", Status::error()),
         }
     }
