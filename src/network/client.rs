@@ -2,7 +2,7 @@ use colored::Colorize;
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::{from_reader, from_str, Value};
-use winconsole::console::{self};
+use winconsole::console::{self, clear};
 use std::{io::{Read, Write}, fs, io, path::Path, time::Duration};
 
 use crate::config::cfg::Config;
@@ -293,6 +293,7 @@ fn download_single_file(
 
 pub fn get_config(client: &Client) -> Result<Config, String> {
     let selected_index_url = fetch_gist(client)?;
+    clear().unwrap();
     println!("{} Fetching download configuration...", Status::info());
 
     let mut response = client
