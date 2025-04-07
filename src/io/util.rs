@@ -2,6 +2,7 @@ use std::{fs::File, io, sync::Arc, thread, time::{Duration, Instant}};
 use colored::Colorize;
 use reqwest::blocking::Client;
 use serde_json::Value;
+#[cfg(windows)]
 use winconsole::console::{clear, set_title};
 
 use crate::{config::{cfg::Config, status::Status}, download::progress::DownloadProgress, io::logging::log_error, network::client::download_file};
@@ -95,7 +96,10 @@ pub fn get_version(data: &Value, category: &str, version: &str) -> Result<String
 
 pub fn exit_with_error(log_file: &File, error: &str) -> ! {
     log_error(log_file, error);
+
+    #[cfg(windows)]
     clear().unwrap();
+    
     println!("{} {}", Status::error(), error);
     println!("\n{} Press Enter to exit...", Status::warning());
     let _ = io::stdin().read_line(&mut String::new());
@@ -161,8 +165,10 @@ pub fn start_title_thread(
                 speed_unit,
                 eta_str
             );
-
+            
+            #[cfg(windows)]
             set_title(&title).unwrap();
+            
             thread::sleep(Duration::from_secs(1));
         }
     })
@@ -171,7 +177,10 @@ pub fn start_title_thread(
 pub fn setup_ctrlc(should_stop: Arc<std::sync::atomic::AtomicBool>) {
     ctrlc::set_handler(move || {
         should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+
+        #[cfg(windows)]
         clear().unwrap();
+        
         println!("\n{} Download interrupted by user", Status::warning());
     })
     .unwrap();

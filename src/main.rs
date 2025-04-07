@@ -1,6 +1,7 @@
 use colored::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
+#[cfg(windows)]
 use winconsole::console::{clear, set_title};
 
 use wuwa_downloader::{
@@ -17,7 +18,9 @@ use wuwa_downloader::{
 };
 
 fn main() {
+    #[cfg(windows)]
     set_title("Wuthering Waves Downloader").unwrap();
+
     let log_file = setup_logging();
     let client = Client::new();
 
@@ -27,6 +30,8 @@ fn main() {
     };
 
     let folder = get_dir();
+
+    #[cfg(windows)]
     clear().unwrap();
     println!(
         "\n{} Download folder: {}\n",
@@ -47,6 +52,8 @@ fn main() {
     );
 
     let total_size = calculate_total_size(resources, &client, &config);
+
+    #[cfg(windows)]
     clear().unwrap();
 
     let (should_stop, success, progress) = track_progress(total_size);
@@ -74,7 +81,9 @@ fn main() {
     should_stop.store(true, std::sync::atomic::Ordering::SeqCst);
     title_thread.join().unwrap();
 
+    #[cfg(windows)]
     clear().unwrap();
+    
     print_results(
         success.load(std::sync::atomic::Ordering::SeqCst),
         resources.len(),

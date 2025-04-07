@@ -2,8 +2,9 @@ use colored::Colorize;
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::{from_reader, from_str, Value};
-use winconsole::console::{self, clear};
 use std::{io::{Read, Write}, fs, io, path::Path, time::Duration};
+#[cfg(windows)]
+use winconsole::console::clear;
 
 use crate::config::cfg::Config;
 use crate::download::progress::DownloadProgress;
@@ -27,7 +28,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         Ok(resp) => resp,
         Err(e) => {
             log_error(log_file, &format!("Error fetching index file: {}", e));
-            console::clear().unwrap();
+
+            #[cfg(windows)]
+            clear().unwrap();
+
             println!("{} Error fetching index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -38,7 +42,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
     if !response.status().is_success() {
         let msg = format!("Error fetching index file: HTTP {}", response.status());
         log_error(log_file, &msg);
-        console::clear().unwrap();
+
+        #[cfg(windows)]
+        clear().unwrap();
+        
         println!("{} {}", Status::error(), msg);
         println!("\n{} Press Enter to exit...", Status::warning());
         let _ = io::stdin().read_line(&mut String::new());
@@ -55,7 +62,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         let mut buffer = Vec::new();
         if let Err(e) = response.copy_to(&mut buffer) {
             log_error(log_file, &format!("Error reading index file bytes: {}", e));
-            console::clear().unwrap();
+
+            #[cfg(windows)]
+            clear().unwrap();
+            
             println!("{} Error reading index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -66,7 +76,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         let mut decompressed_text = String::new();
         if let Err(e) = gz.read_to_string(&mut decompressed_text) {
             log_error(log_file, &format!("Error decompressing index file: {}", e));
-            console::clear().unwrap();
+            
+            #[cfg(windows)]
+            clear().unwrap();
+            
             println!("{} Error decompressing index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -81,7 +94,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
                     log_file,
                     &format!("Error reading index file response: {}", e),
                 );
-                console::clear().unwrap();
+
+                #[cfg(windows)]
+                clear().unwrap();
+                
                 println!("{} Error reading index file: {}", Status::error(), e);
                 println!("\n{} Press Enter to exit...", Status::warning());
                 let _ = io::stdin().read_line(&mut String::new());
@@ -96,7 +112,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         Ok(v) => v,
         Err(e) => {
             log_error(log_file, &format!("Error parsing index file JSON: {}", e));
-            console::clear().unwrap();
+            
+            #[cfg(windows)]
+            clear().unwrap();
+            
             println!("{} Error parsing index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -293,7 +312,10 @@ fn download_single_file(
 
 pub fn get_config(client: &Client) -> Result<Config, String> {
     let selected_index_url = fetch_gist(client)?;
+    
+    #[cfg(windows)]
     clear().unwrap();
+
     println!("{} Fetching download configuration...", Status::info());
 
     let mut response = client
