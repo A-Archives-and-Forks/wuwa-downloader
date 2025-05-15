@@ -3,10 +3,11 @@ use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
 use serde_json::{Value, from_reader, from_str};
 use std::{
-    fs, io,
-    io::{Read, Write},
+    fs,
+    io::{self, Read, Write},
     path::Path,
     time::Duration,
+    u64,
 };
 #[cfg(windows)]
 use winconsole::console::clear;
@@ -19,7 +20,7 @@ use crate::io::{logging::log_error, util::get_version};
 
 const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/4435fd290c07f7f766a6d2ab09ed3096d83b02e3/wuwa.json";
 const MAX_RETRIES: usize = 3;
-const DOWNLOAD_TIMEOUT: u64 = 300;
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(u64::MAX);
 const BUFFER_SIZE: usize = 65536;
 
 pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Value {
@@ -317,7 +318,7 @@ fn download_single_file(
 ) -> Result<(), String> {
     let mut response = client
         .get(url)
-        .timeout(Duration::from_secs(DOWNLOAD_TIMEOUT))
+        .timeout(DOWNLOAD_TIMEOUT)
         .send()
         .map_err(|e| format!("Network error: {}", e))?;
 
