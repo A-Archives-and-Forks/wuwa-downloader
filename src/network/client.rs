@@ -20,7 +20,7 @@ use crate::io::{logging::log_error, util::get_version};
 
 const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/4435fd290c07f7f766a6d2ab09ed3096d83b02e3/wuwa.json";
 const MAX_RETRIES: usize = 3;
-const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(u64::MAX);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10000);
 const BUFFER_SIZE: usize = 65536;
 
 pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Value {
