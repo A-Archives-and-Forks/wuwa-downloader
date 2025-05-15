@@ -20,8 +20,8 @@ rustup default nightly
 
 - **Clone the repository:**
 ```bash
-git clone https://github.com/yourusername/wuthering-waves-downloader.git
-cd wuthering-waves-downloader
+git clone https://github.com/yuhkix/wuwa-downloader.git
+cd wuwa-downloader
 ```
 
 - **Build the project:**
