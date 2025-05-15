@@ -1,15 +1,31 @@
-use std::{fs::File, io, sync::Arc, thread, time::{Duration, Instant}};
 use colored::Colorize;
 use reqwest::blocking::Client;
 use serde_json::Value;
+use std::{
+    fs::File,
+    io,
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
 #[cfg(windows)]
 use winconsole::console::{clear, set_title};
 
-use crate::{config::{cfg::Config, status::Status}, download::progress::DownloadProgress, io::logging::log_error, network::client::download_file};
+use crate::{
+    config::{cfg::Config, status::Status},
+    download::progress::DownloadProgress,
+    io::logging::log_error,
+    network::client::download_file,
+};
 
 pub fn format_duration(duration: Duration) -> String {
     let secs = duration.as_secs();
-    format!("{:02}:{:02}:{:02}", secs / 3600, (secs % 3600) / 60, secs % 60)
+    format!(
+        "{:02}:{:02}:{:02}",
+        secs / 3600,
+        (secs % 3600) / 60,
+        secs % 60
+    )
 }
 
 pub fn bytes_to_human(bytes: u64) -> String {
@@ -26,12 +42,12 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
     let mut failed_urls = 0;
 
     println!("{} Processing files...", Status::info());
-    
+
     for (i, item) in resources.iter().enumerate() {
         if let Some(dest) = item.get("dest").and_then(Value::as_str) {
             let mut file_size = 0;
             let mut found_valid_url = false;
-            
+
             for base_url in &config.zip_bases {
                 let url = format!("{}/{}", base_url, dest);
                 match client.head(&url).send() {
@@ -56,7 +72,11 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
                 total_size += file_size;
             } else {
                 failed_urls += 1;
-                println!("{} Could not determine size for file: {}", Status::error(), dest);
+                println!(
+                    "{} Could not determine size for file: {}",
+                    Status::error(),
+                    dest
+                );
             }
         }
 
@@ -99,14 +119,16 @@ pub fn exit_with_error(log_file: &File, error: &str) -> ! {
 
     #[cfg(windows)]
     clear().unwrap();
-    
+
     println!("{} {}", Status::error(), error);
     println!("\n{} Press Enter to exit...", Status::warning());
     let _ = io::stdin().read_line(&mut String::new());
     std::process::exit(1);
 }
 
-pub fn track_progress(total_size: u64) -> (
+pub fn track_progress(
+    total_size: u64,
+) -> (
     Arc<std::sync::atomic::AtomicBool>,
     Arc<std::sync::atomic::AtomicUsize>,
     DownloadProgress,
@@ -133,11 +155,19 @@ pub fn start_title_thread(
         while !should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             let elapsed = progress.start_time.elapsed();
             let elapsed_secs = elapsed.as_secs();
-            let downloaded_bytes = progress.downloaded_bytes.load(std::sync::atomic::Ordering::SeqCst);
-            let total_bytes = progress.total_bytes.load(std::sync::atomic::Ordering::SeqCst);
+            let downloaded_bytes = progress
+                .downloaded_bytes
+                .load(std::sync::atomic::Ordering::SeqCst);
+            let total_bytes = progress
+                .total_bytes
+                .load(std::sync::atomic::Ordering::SeqCst);
             let current_success = success.load(std::sync::atomic::Ordering::SeqCst);
 
-            let speed = if elapsed_secs > 0 { downloaded_bytes / elapsed_secs } else { 0 };
+            let speed = if elapsed_secs > 0 {
+                downloaded_bytes / elapsed_secs
+            } else {
+                0
+            };
             let (speed_value, speed_unit) = if speed > 1_000_000 {
                 (speed / 1_000_000, "MB/s")
             } else {
@@ -146,7 +176,11 @@ pub fn start_title_thread(
 
             let remaining_files = total_files - current_success;
             let remaining_bytes = total_bytes.saturating_sub(downloaded_bytes);
-            let eta_secs = if speed > 0 && remaining_files > 0 { remaining_bytes / speed } else { 0 };
+            let eta_secs = if speed > 0 && remaining_files > 0 {
+                remaining_bytes / speed
+            } else {
+                0
+            };
             let eta_str = format_duration(Duration::from_secs(eta_secs));
 
             let progress_percent = if total_bytes > 0 {
@@ -156,7 +190,7 @@ pub fn start_title_thread(
             };
 
             let title = format!(
-                "Wuthering Waves Downloader - {}/{} files - Current File: {}{} - Speed: {}{} - Total ETA: {}",
+                "Wuthering Waves Downloader - {}/{} files - Total Downloaded: {}{} - Speed: {}{} - Total ETA: {}",
                 current_success,
                 total_files,
                 bytes_to_human(downloaded_bytes),
@@ -165,10 +199,10 @@ pub fn start_title_thread(
                 speed_unit,
                 eta_str
             );
-            
+
             #[cfg(windows)]
             set_title(&title).unwrap();
-            
+
             thread::sleep(Duration::from_secs(1));
         }
     })
@@ -180,7 +214,7 @@ pub fn setup_ctrlc(should_stop: Arc<std::sync::atomic::AtomicBool>) {
 
         #[cfg(windows)]
         clear().unwrap();
-        
+
         println!("\n{} Download interrupted by user", Status::warning());
     })
     .unwrap();

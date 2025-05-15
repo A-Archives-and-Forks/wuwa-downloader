@@ -1,16 +1,21 @@
 use colored::Colorize;
 use flate2::read::GzDecoder;
 use reqwest::blocking::Client;
-use serde_json::{from_reader, from_str, Value};
-use std::{io::{Read, Write}, fs, io, path::Path, time::Duration};
+use serde_json::{Value, from_reader, from_str};
+use std::{
+    fs, io,
+    io::{Read, Write},
+    path::Path,
+    time::Duration,
+};
 #[cfg(windows)]
 use winconsole::console::clear;
 
 use crate::config::cfg::Config;
+use crate::config::status::Status;
 use crate::download::progress::DownloadProgress;
 use crate::io::file::{calculate_md5, check_existing_file, get_filename};
 use crate::io::{logging::log_error, util::get_version};
-use crate::config::status::Status;
 
 const INDEX_URL: &str = "https://gist.githubusercontent.com/yuhkix/b8796681ac2cd3bab11b7e8cdc022254/raw/4435fd290c07f7f766a6d2ab09ed3096d83b02e3/wuwa.json";
 const MAX_RETRIES: usize = 3;
@@ -45,7 +50,7 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
 
         #[cfg(windows)]
         clear().unwrap();
-        
+
         println!("{} {}", Status::error(), msg);
         println!("\n{} Press Enter to exit...", Status::warning());
         let _ = io::stdin().read_line(&mut String::new());
@@ -65,7 +70,7 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
 
             #[cfg(windows)]
             clear().unwrap();
-            
+
             println!("{} Error reading index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -76,10 +81,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         let mut decompressed_text = String::new();
         if let Err(e) = gz.read_to_string(&mut decompressed_text) {
             log_error(log_file, &format!("Error decompressing index file: {}", e));
-            
+
             #[cfg(windows)]
             clear().unwrap();
-            
+
             println!("{} Error decompressing index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -97,7 +102,7 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
 
                 #[cfg(windows)]
                 clear().unwrap();
-                
+
                 println!("{} Error reading index file: {}", Status::error(), e);
                 println!("\n{} Press Enter to exit...", Status::warning());
                 let _ = io::stdin().read_line(&mut String::new());
@@ -112,10 +117,10 @@ pub fn fetch_index(client: &Client, config: &Config, log_file: &fs::File) -> Val
         Ok(v) => v,
         Err(e) => {
             log_error(log_file, &format!("Error parsing index file JSON: {}", e));
-            
+
             #[cfg(windows)]
             clear().unwrap();
-            
+
             println!("{} Error parsing index file: {}", Status::error(), e);
             println!("\n{} Press Enter to exit...", Status::warning());
             let _ = io::stdin().read_line(&mut String::new());
@@ -152,13 +157,16 @@ pub fn download_file(
         let url = format!("{}{}", base_url, dest);
 
         if let Ok(head_response) = client.head(&url).timeout(Duration::from_secs(10)).send() {
-            if let Some(size) = head_response.headers()
+            if let Some(size) = head_response
+                .headers()
                 .get("content-length")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.parse::<u64>().ok())
             {
                 file_size = Some(size);
-                progress.total_bytes.fetch_add(size, std::sync::atomic::Ordering::SeqCst);
+                progress
+                    .total_bytes
+                    .fetch_add(size, std::sync::atomic::Ordering::SeqCst);
                 break;
             }
         }
@@ -166,7 +174,11 @@ pub fn download_file(
 
     if let (Some(md5), Some(size)) = (expected_md5, file_size) {
         if should_skip_download(&path, Some(md5), Some(size)) {
-            println!("{} File is valid: {}", Status::matched(), filename.bright_purple());
+            println!(
+                "{} File is valid: {}",
+                Status::matched(),
+                filename.bright_purple()
+            );
             return true;
         }
     }
@@ -185,23 +197,36 @@ pub fn download_file(
         let head_response = match client.head(&url).timeout(Duration::from_secs(10)).send() {
             Ok(resp) if resp.status().is_success() => resp,
             Ok(resp) => {
-                log_error(log_file, &format!("CDN {} failed for {} (HTTP {})", i+1, dest, resp.status()));
+                log_error(
+                    log_file,
+                    &format!("CDN {} failed for {} (HTTP {})", i + 1, dest, resp.status()),
+                );
                 continue;
-            },
+            }
             Err(e) => {
-                log_error(log_file, &format!("CDN {} failed for {}: {}", i+1, dest, e));
+                log_error(
+                    log_file,
+                    &format!("CDN {} failed for {}: {}", i + 1, dest, e),
+                );
                 continue;
             }
         };
 
-        let expected_size = file_size.or_else(|| head_response.headers()
-            .get("content-length")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.parse::<u64>().ok()));
+        let expected_size = file_size.or_else(|| {
+            head_response
+                .headers()
+                .get("content-length")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok())
+        });
 
         if let (Some(md5), Some(size)) = (expected_md5, expected_size) {
             if check_existing_file(&path, Some(md5), Some(size)) {
-                println!("{} File is valid: {}", Status::matched(), filename.bright_purple());
+                println!(
+                    "{} File is valid: {}",
+                    Status::matched(),
+                    filename.bright_purple()
+                );
                 return true;
             }
         }
@@ -213,7 +238,7 @@ pub fn download_file(
 
         while retries > 0 {
             let result = download_single_file(&client, &url, &path, should_stop, progress);
-            
+
             match result {
                 Ok(_) => break,
                 Err(e) => {
@@ -224,10 +249,14 @@ pub fn download_file(
                     last_error = Some(e);
                     retries -= 1;
                     let _ = fs::remove_file(&path);
-                    
+
                     if retries > 0 {
-                        println!("{} Retrying {}... ({} left)", 
-                            Status::warning(), filename.yellow(), retries);
+                        println!(
+                            "{} Retrying {}... ({} left)",
+                            Status::warning(),
+                            filename.yellow(),
+                            retries
+                        );
                     }
                 }
             }
@@ -238,8 +267,14 @@ pub fn download_file(
         }
 
         if retries == 0 {
-            log_error(log_file, &format!("Failed after retries for {}: {}", dest, 
-                last_error.unwrap_or_default()));
+            log_error(
+                log_file,
+                &format!(
+                    "Failed after retries for {}: {}",
+                    dest,
+                    last_error.unwrap_or_default()
+                ),
+            );
             println!("{} Failed: {}", Status::error(), filename.red());
             return false;
         }
@@ -248,11 +283,16 @@ pub fn download_file(
             if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
                 return false;
             }
-            
+
             let actual = calculate_md5(&path);
             if actual != expected {
-                log_error(log_file, &format!("Checksum failed for {}: expected {}, got {}", 
-                    dest, expected, actual));
+                log_error(
+                    log_file,
+                    &format!(
+                        "Checksum failed for {}: expected {}, got {}",
+                        dest, expected, actual
+                    ),
+                );
                 fs::remove_file(&path).unwrap();
                 println!("{} Checksum failed: {}", Status::error(), filename.red());
                 return false;
@@ -285,26 +325,28 @@ fn download_single_file(
         return Err(format!("HTTP error: {}", response.status()));
     }
 
-    let mut file = fs::File::create(path)
-        .map_err(|e| format!("File error: {}", e))?;
+    let mut file = fs::File::create(path).map_err(|e| format!("File error: {}", e))?;
 
     let mut buffer = [0; BUFFER_SIZE];
     loop {
         if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             return Err("Download interrupted".into());
         }
-        
-        let bytes_read = response.read(&mut buffer)
+
+        let bytes_read = response
+            .read(&mut buffer)
             .map_err(|e| format!("Read error: {}", e))?;
-            
+
         if bytes_read == 0 {
             break;
         }
-        
+
         file.write_all(&buffer[..bytes_read])
             .map_err(|e| format!("Write error: {}", e))?;
-            
-        progress.downloaded_bytes.fetch_add(bytes_read as u64, std::sync::atomic::Ordering::SeqCst);
+
+        progress
+            .downloaded_bytes
+            .fetch_add(bytes_read as u64, std::sync::atomic::Ordering::SeqCst);
     }
 
     Ok(())
@@ -312,7 +354,7 @@ fn download_single_file(
 
 pub fn get_config(client: &Client) -> Result<Config, String> {
     let selected_index_url = fetch_gist(client)?;
-    
+
     #[cfg(windows)]
     clear().unwrap();
 
@@ -362,24 +404,31 @@ pub fn get_config(client: &Client) -> Result<Config, String> {
             println!("{} Using predownload.config", Status::info());
             "predownload"
         }
-        (true, true) => {
-            loop {
-                print!("{} Choose config to use (1=default, 2=predownload): ", Status::question());
-                io::stdout().flush().map_err(|e| format!("Failed to flush stdout: {}", e))?;
-                
-                let mut input = String::new();
-                io::stdin()
-                    .read_line(&mut input)
-                    .map_err(|e| format!("Failed to read input: {}", e))?;
-                
-                match input.trim() {
-                    "1" => break "default",
-                    "2" => break "predownload",
-                    _ => println!("{} Invalid choice, please enter 1 or 2", Status::error()),
-                }
+        (true, true) => loop {
+            print!(
+                "{} Choose config to use (1=default, 2=predownload): ",
+                Status::question()
+            );
+            io::stdout()
+                .flush()
+                .map_err(|e| format!("Failed to flush stdout: {}", e))?;
+
+            let mut input = String::new();
+            io::stdin()
+                .read_line(&mut input)
+                .map_err(|e| format!("Failed to read input: {}", e))?;
+
+            match input.trim() {
+                "1" => break "default",
+                "2" => break "predownload",
+                _ => println!("{} Invalid choice, please enter 1 or 2", Status::error()),
             }
+        },
+        (false, false) => {
+            return Err(
+                "Neither default.config nor predownload.config found in response".to_string(),
+            );
         }
-        (false, false) => return Err("Neither default.config nor predownload.config found in response".to_string()),
     };
 
     let config_data = config
@@ -416,10 +465,10 @@ pub fn get_config(client: &Client) -> Result<Config, String> {
         return Err("No valid CDN URLs found".to_string());
     }
 
-    let full_index_url = format!("{}/{}", cdn_urls[0], index_file.trim_start_matches('/'));
+    let full_index_url = format!("{}//{}", cdn_urls[0], index_file.trim_start_matches('/'));
     let zip_bases = cdn_urls
         .iter()
-        .map(|cdn| format!("{}/{}", cdn, base_url.trim_start_matches('/')))
+        .map(|cdn| format!("{}//{}", cdn, base_url.trim_start_matches('/')))
         .collect();
 
     Ok(Config {
@@ -455,14 +504,15 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
 
     let gist_data: Value = if content_encoding.contains("gzip") {
         let mut buffer = Vec::new();
-        response.copy_to(&mut buffer)
+        response
+            .copy_to(&mut buffer)
             .map_err(|e| format!("Error reading response: {}", e))?;
-        
+
         let mut gz = GzDecoder::new(&buffer[..]);
         let mut decompressed = String::new();
         gz.read_to_string(&mut decompressed)
             .map_err(|e| format!("Error decompressing: {}", e))?;
-        
+
         from_str(&decompressed).map_err(|e| format!("Invalid JSON: {}", e))?
     } else {
         from_reader(response).map_err(|e| format!("Invalid JSON: {}", e))?
