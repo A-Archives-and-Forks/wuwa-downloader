@@ -74,4 +74,4 @@ cargo build --release
 
 - **Multi-threaded** - Safe concurrent progress tracking
 
-- **Configurable Timeouts** - 30s for metadata, 300s for downloads
+- **Configurable Timeouts** - 30s for metadata, 10000s for downloads
