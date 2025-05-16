@@ -1,5 +1,9 @@
-use std::{fs, io, io::Write, path::{Path, PathBuf}};
 use md5::{Digest, Md5};
+use std::{
+    fs, io,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use crate::config::status::Status;
 
@@ -10,7 +14,11 @@ pub fn calculate_md5(path: &Path) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-pub fn check_existing_file(path: &Path, expected_md5: Option<&str>, expected_size: Option<u64>) -> bool {
+pub fn check_existing_file(
+    path: &Path,
+    expected_md5: Option<&str>,
+    expected_size: Option<u64>,
+) -> bool {
     if !path.exists() {
         return false;
     }
@@ -41,7 +49,7 @@ pub fn get_filename(path: &str) -> String {
 pub fn get_dir() -> PathBuf {
     loop {
         print!(
-            "{} Enter download directory (Enter for current): ",
+            "{} Please specify the directory where the game should be downloaded (press Enter to use the current directory): ",
             Status::question()
         );
         io::stdout().flush().unwrap();

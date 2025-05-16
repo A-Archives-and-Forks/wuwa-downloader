@@ -523,7 +523,7 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
     println!("1. Live - OS");
     println!("2. Live - CN");
     println!("3. Beta - OS");
-    println!("4. Beta - CN");
+    println!("4. Beta - CN (wicked-waifus-rs)");
 
     loop {
         print!("{} Select version: ", Status::question());
