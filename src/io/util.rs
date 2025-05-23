@@ -2,8 +2,8 @@ use colored::Colorize;
 use reqwest::blocking::Client;
 use serde_json::Value;
 use std::{
-    fs::File,
-    io,
+    fs::{self, File},
+    io::{self, Write},
     sync::Arc,
     thread,
     time::{Duration, Instant},
@@ -37,6 +37,23 @@ pub fn bytes_to_human(bytes: u64) -> String {
     }
 }
 
+fn log_url(url: &str) {
+    let sanitized_url = if let Some(index) = url.find("://") {
+        let (scheme, rest) = url.split_at(index + 3);
+        format!("{}{}", scheme, rest.replace("//", "/"))
+    } else {
+        url.replace("//", "/")
+    };
+
+    if let Ok(mut url_log) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("urls.txt")
+    {
+        let _ = writeln!(url_log, "{}", sanitized_url);
+    }
+}
+
 pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Config) -> u64 {
     let mut total_size = 0;
     let mut failed_urls = 0;
@@ -50,6 +67,7 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
 
             for base_url in &config.zip_bases {
                 let url = format!("{}/{}", base_url, dest);
+                log_url(&url);
                 match client.head(&url).send() {
                     Ok(response) => {
                         if let Some(len) = response.headers().get("content-length") {
@@ -189,7 +207,7 @@ pub fn start_title_thread(
                 String::new()
             };
 
-            let title = format!(
+            let _title = format!(
                 "Wuthering Waves Downloader - {}/{} files - Total Downloaded: {}{} - Speed: {}{} - Total ETA: {}",
                 current_success,
                 total_files,
