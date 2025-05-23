@@ -207,7 +207,7 @@ pub fn start_title_thread(
                 String::new()
             };
 
-            let _title = format!(
+            let title = format!(
                 "Wuthering Waves Downloader - {}/{} files - Total Downloaded: {}{} - Speed: {}{} - Total ETA: {}",
                 current_success,
                 total_files,
