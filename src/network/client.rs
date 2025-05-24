@@ -4,8 +4,11 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
 use serde_json::{Value, from_reader, from_str};
 use std::{
-    fs, io::{self, Read, Write}, path::Path, process::Command, time::Duration, u64
+    fs, io::{self, Read, Write}, path::Path, time::Duration, u64
 };
+#[cfg(not(target_os = "windows"))]
+use std::process::Command;
+
 #[cfg(windows)]
 use winconsole::console::clear;
 

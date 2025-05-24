@@ -2,8 +2,12 @@ use colored::Colorize;
 use reqwest::blocking::Client;
 use serde_json::Value;
 use std::{
-    fs::{self, File}, io::{self, Write}, process::Command, sync::Arc, thread, time::{Duration, Instant}
+    fs::{self, File}, io::{self, Write}, sync::Arc, thread, time::{Duration, Instant}
 };
+
+#[cfg(not(target_os = "windows"))]
+use std::process::Command;
+
 #[cfg(windows)]
 use winconsole::console::{clear, set_title};
 

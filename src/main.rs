@@ -1,8 +1,10 @@
-use std::process::Command;
-
 use colored::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
+
+#[cfg(not(target_os = "windows"))]
+use std::process::Command;
+
 #[cfg(windows)]
 use winconsole::console::{clear, set_title};
 
