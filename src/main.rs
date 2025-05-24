@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use colored::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
@@ -33,6 +35,9 @@ fn main() {
 
     #[cfg(windows)]
     clear().unwrap();
+    #[cfg(not(target_os = "windows"))]
+    Command::new("clear").status().unwrap();
+
     println!(
         "\n{} Download folder: {}\n",
         Status::info(),

@@ -2,11 +2,7 @@ use colored::Colorize;
 use reqwest::blocking::Client;
 use serde_json::Value;
 use std::{
-    fs::{self, File},
-    io::{self, Write},
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
+    fs::{self, File}, io::{self, Write}, process::Command, sync::Arc, thread, time::{Duration, Instant}
 };
 #[cfg(windows)]
 use winconsole::console::{clear, set_title};
@@ -122,6 +118,9 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
         bytes_to_human(total_size).cyan()
     );
 
+    #[cfg(not(target_os = "windows"))]
+    Command::new("clear").status().unwrap();
+    
     total_size
 }
 

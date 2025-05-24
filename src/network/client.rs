@@ -1,13 +1,10 @@
 use colored::Colorize;
 use flate2::read::GzDecoder;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
 use serde_json::{Value, from_reader, from_str};
 use std::{
-    fs,
-    io::{self, Read, Write},
-    path::Path,
-    time::Duration,
-    u64,
+    fs, io::{self, Read, Write}, path::Path, process::Command, time::Duration, u64
 };
 #[cfg(windows)]
 use winconsole::console::clear;
@@ -234,16 +231,23 @@ pub fn download_file(
 
         println!("{} Downloading: {}", Status::progress(), filename.purple());
 
+        let pb = ProgressBar::new(expected_size.unwrap_or(0));
+        pb.set_style(ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta}, {binary_bytes_per_sec})")
+            .unwrap()
+            .progress_chars("#>-"));
+
         let mut retries = MAX_RETRIES;
         let mut last_error = None;
 
         while retries > 0 {
-            let result = download_single_file(&client, &url, &path, should_stop, progress);
+            let result = download_single_file(&client, &url, &path, should_stop, progress, &pb);
 
             match result {
                 Ok(_) => break,
                 Err(e) => {
                     if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+                        pb.finish_and_clear();
                         return false;
                     }
 
@@ -262,6 +266,8 @@ pub fn download_file(
                 }
             }
         }
+
+        pb.finish_and_clear();
 
         if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             return false;
@@ -315,6 +321,7 @@ fn download_single_file(
     path: &Path,
     should_stop: &std::sync::atomic::AtomicBool,
     progress: &DownloadProgress,
+    pb: &ProgressBar,
 ) -> Result<(), String> {
     let mut response = client
         .get(url)
@@ -329,6 +336,7 @@ fn download_single_file(
     let mut file = fs::File::create(path).map_err(|e| format!("File error: {}", e))?;
 
     let mut buffer = [0; BUFFER_SIZE];
+    let mut downloaded: u64 = 0;
     loop {
         if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             return Err("Download interrupted".into());
@@ -345,6 +353,8 @@ fn download_single_file(
         file.write_all(&buffer[..bytes_read])
             .map_err(|e| format!("Write error: {}", e))?;
 
+        downloaded += bytes_read as u64;
+        pb.set_position(downloaded);
         progress
             .downloaded_bytes
             .fetch_add(bytes_read as u64, std::sync::atomic::Ordering::SeqCst);
@@ -518,6 +528,9 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
     } else {
         from_reader(response).map_err(|e| format!("Invalid JSON: {}", e))?
     };
+
+    #[cfg(not(target_os = "windows"))]
+    Command::new("clear").status().unwrap();
 
     println!("{} Available versions:", Status::info());
     println!("1. Live - OS");
