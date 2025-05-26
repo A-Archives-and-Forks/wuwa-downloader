@@ -3,11 +3,15 @@ use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
 use serde_json::{Value, from_reader, from_str};
-use std::{
-    fs, io::{self, Read, Write}, path::Path, time::Duration, u64
-};
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
+use std::{
+    fs,
+    io::{self, Read, Write},
+    path::Path,
+    time::Duration,
+    u64,
+};
 
 #[cfg(windows)]
 use winconsole::console::clear;
@@ -521,12 +525,10 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
         response
             .copy_to(&mut buffer)
             .map_err(|e| format!("Error reading response: {}", e))?;
-
         let mut gz = GzDecoder::new(&buffer[..]);
         let mut decompressed = String::new();
         gz.read_to_string(&mut decompressed)
             .map_err(|e| format!("Error decompressing: {}", e))?;
-
         from_str(&decompressed).map_err(|e| format!("Invalid JSON: {}", e))?
     } else {
         from_reader(response).map_err(|e| format!("Invalid JSON: {}", e))?
@@ -535,11 +537,63 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     Command::new("clear").status().unwrap();
 
+    let entries = [
+        ("live", "os", "Live - OS"),
+        ("live", "cn", "Live - CN"),
+        ("beta", "os", "Beta - OS"),
+        ("beta", "cn", "Beta - CN (wicked-waifus-rs)"),
+    ];
+
     println!("{} Available versions:", Status::info());
-    println!("1. Live - OS");
-    println!("2. Live - CN");
-    println!("3. Beta - OS");
-    println!("4. Beta - CN (wicked-waifus-rs)");
+
+    for (i, (cat, ver, label)) in entries.iter().enumerate() {
+        let index_url = get_version(&gist_data, cat, ver)?;
+
+        let mut resp = client
+            .get(&index_url)
+            .send()
+            .map_err(|e| format!("Error fetching index.json: {}", e))
+            .unwrap();
+
+        let version_json: Value = {
+            let content_encoding = resp
+                .headers()
+                .get("content-encoding")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+
+            if content_encoding.contains("gzip") {
+                let mut buffer = Vec::new();
+                resp.copy_to(&mut buffer)
+                    .map_err(|e| format!("Error reading response: {}", e))
+                    .unwrap();
+
+                let mut gz = GzDecoder::new(&buffer[..]);
+                let mut decompressed = String::new();
+                gz.read_to_string(&mut decompressed)
+                    .map_err(|e| format!("Error decompressing: {}", e))
+                    .unwrap();
+
+                from_str(&decompressed)
+                    .map_err(|e| format!("Invalid JSON: {}", e))
+                    .unwrap()
+            } else {
+                from_reader(resp)
+                    .map_err(|e| format!("Invalid JSON: {}", e))
+                    .unwrap()
+            }
+        };
+
+        let version = version_json
+            .get("default")
+            .and_then(|d| d.get("config"))
+            .and_then(|c| c.get("version"))
+            .or_else(|| version_json.get("default").and_then(|d| d.get("version")))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        println!("{}. {} ({})", i + 1, label, version);
+    }
 
     loop {
         print!("{} Select version: ", Status::question());
