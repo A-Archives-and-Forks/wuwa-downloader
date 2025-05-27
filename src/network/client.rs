@@ -6,7 +6,7 @@ use serde_json::{Value, from_reader, from_str};
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
 use std::{
-    fs,
+    fs::{self, OpenOptions},
     io::{self, Read, Write},
     path::Path,
     time::Duration,
@@ -322,6 +322,7 @@ pub fn download_file(
     false
 }
 
+
 fn download_single_file(
     client: &Client,
     url: &str,
@@ -330,20 +331,45 @@ fn download_single_file(
     progress: &DownloadProgress,
     pb: &ProgressBar,
 ) -> Result<(), String> {
-    let mut response = client
+    let mut downloaded: u64 = 0;
+    if path.exists() {
+        downloaded = fs::metadata(path)
+            .map_err(|e| format!("Metadata error: {}", e))?
+            .len();
+    }
+    
+    let request = client
         .get(url)
-        .timeout(DOWNLOAD_TIMEOUT)
+        .timeout(DOWNLOAD_TIMEOUT);
+
+    let request = if downloaded > 0 {
+        request.header("Range", format!("bytes={}-", downloaded))
+    } else {
+        request
+    };
+
+    let mut response = request
         .send()
         .map_err(|e| format!("Network error: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("HTTP error: {}", response.status()));
+    if response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+        return Err("Range not satisfiable. File may already be fully downloaded.".into());
     }
 
-    let mut file = fs::File::create(path).map_err(|e| format!("File error: {}", e))?;
+    if !response.status().is_success() && response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("File error: {}", e))?;
+    
+    pb.set_position(downloaded);
+    progress.downloaded_bytes.store(downloaded, std::sync::atomic::Ordering::SeqCst);
 
     let mut buffer = [0; BUFFER_SIZE];
-    let mut downloaded: u64 = 0;
     loop {
         if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             return Err("Download interrupted".into());
@@ -364,7 +390,7 @@ fn download_single_file(
         pb.set_position(downloaded);
         progress
             .downloaded_bytes
-            .fetch_add(bytes_read as u64, std::sync::atomic::Ordering::SeqCst);
+            .store(downloaded, std::sync::atomic::Ordering::SeqCst);
     }
 
     Ok(())
@@ -541,7 +567,7 @@ pub fn fetch_gist(client: &Client) -> Result<String, String> {
         ("live", "os", "Live - OS"),
         ("live", "cn", "Live - CN"),
         ("beta", "os", "Beta - OS"),
-        ("beta", "cn", "Beta - CN (wicked-waifus-rs)"),
+        ("beta", "cn", "Beta - CN"),
     ];
 
     println!("{} Available versions:", Status::info());
