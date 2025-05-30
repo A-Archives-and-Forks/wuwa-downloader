@@ -1,5 +1,8 @@
-use std::{fs::{self, OpenOptions}, io::Write, time::SystemTime};
-
+use std::{
+    fs::{self, OpenOptions},
+    io::Write,
+    time::SystemTime,
+};
 
 pub fn setup_logging() -> fs::File {
     OpenOptions::new()

@@ -2,7 +2,7 @@ use colored::Colorize;
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
-use serde_json::{Value, from_reader, from_str};
+use serde_json::{from_reader, from_str, Value};
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
 use std::{
@@ -322,7 +322,6 @@ pub fn download_file(
     false
 }
 
-
 fn download_single_file(
     client: &Client,
     url: &str,
@@ -337,10 +336,8 @@ fn download_single_file(
             .map_err(|e| format!("Metadata error: {}", e))?
             .len();
     }
-    
-    let request = client
-        .get(url)
-        .timeout(DOWNLOAD_TIMEOUT);
+
+    let request = client.get(url).timeout(DOWNLOAD_TIMEOUT);
 
     let request = if downloaded > 0 {
         request.header("Range", format!("bytes={}-", downloaded))
@@ -356,18 +353,21 @@ fn download_single_file(
         return Err("Range not satisfiable. File may already be fully downloaded.".into());
     }
 
-    if !response.status().is_success() && response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+    if !response.status().is_success() && response.status() != reqwest::StatusCode::PARTIAL_CONTENT
+    {
         return Err(format!("HTTP error: {}", response.status()));
     }
-    
+
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)
         .map_err(|e| format!("File error: {}", e))?;
-    
+
     pb.set_position(downloaded);
-    progress.downloaded_bytes.store(downloaded, std::sync::atomic::Ordering::SeqCst);
+    progress
+        .downloaded_bytes
+        .store(downloaded, std::sync::atomic::Ordering::SeqCst);
 
     let mut buffer = [0; BUFFER_SIZE];
     loop {

@@ -13,10 +13,11 @@ use wuwa_downloader::{
     io::{
         console::print_results,
         file::get_dir,
-        util::{
-            calculate_total_size, download_resources, exit_with_error, setup_ctrlc, track_progress, start_title_thread
-        },
         logging::setup_logging,
+        util::{
+            calculate_total_size, download_resources, exit_with_error, setup_ctrlc,
+            start_title_thread, track_progress,
+        },
     },
     network::client::{fetch_index, get_config},
 };
@@ -90,7 +91,7 @@ fn main() {
 
     #[cfg(windows)]
     clear().unwrap();
-    
+
     print_results(
         success.load(std::sync::atomic::Ordering::SeqCst),
         resources.len(),

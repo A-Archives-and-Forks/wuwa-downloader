@@ -1,6 +1,6 @@
-use std::{io, path::Path};
-use colored::Colorize;
 use crate::config::status::Status;
+use colored::Colorize;
+use std::{io, path::Path};
 
 pub fn print_results(success: usize, total: usize, folder: &Path) {
     let title = if success == total {
