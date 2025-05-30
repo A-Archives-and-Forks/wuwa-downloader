@@ -10,6 +10,7 @@
 ## 📦 Requirements
 - **Rust nightly toolchain** - 1.87.0-nightly or newer
 - **Windows** - for full console feature support
+- **Linux** - for simply being better
 
 ### 🛠️ Installation & Usage
 - **Install the nightly toolchain:**
