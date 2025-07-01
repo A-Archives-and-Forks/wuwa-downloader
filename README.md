@@ -1,4 +1,7 @@
-# 🌊 Wuthering Waves Downloader
+# 🌊 Wuthering Waves Downloader (Archived as of 1st of July 2025)
+> Might be unarchived at a later date in case someone shares an authentication bypass that allows us to download from Kuro CDNs again.
+
+<br>
 
 *A high-performance, reliable downloader for Wuthering Waves with multi-CDN support and verification*
 
