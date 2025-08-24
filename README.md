@@ -1,8 +1,4 @@
-<div align="center">
-
-<img src="https://i.ibb.co/4gDjPqF9/wuwa.png" width="128" height="128" alt="Wuthering Waves Logo">
-
-# Wuthering Waves Downloader
+# 🌊 Wuthering Waves Downloader
 
 [![Rust nightly](https://img.shields.io/badge/Rust-1.87.0--nightly-orange?logo=rust)](https://www.rust-lang.org/) [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
@@ -48,74 +44,49 @@ cd wuwa-downloader
 cargo build --release
 ```
 
-## ▶️ Usage
-### Running the Application
-- **Windows**: `target\release\wuwa-downloader.exe`
-- **Linux**: `./target/release/wuwa-downloader`
+## 🌟 Key Features
 
-### Workflow
-1. Select a version to download (Live/Beta and OS/CN)
-2. Choose a download directory or press Enter for current directory
-3. Wait for index fetching and size estimation
-4. Monitor download progress with progress bars
-5. Review final summary and press Enter to exit
+### 🚀 Download Management
+- **Multi-CDN Fallback** - Automatically tries all available CDN mirrors
 
-## 🔍 Technical Details
-### How It Works
-- Remote config discovery via JSON
-- Index parsing for resource listing
-- HEAD request preflight checks
-- Range-based downloads with resume capability
-- MD5 checksum validation
+- **Version Selection** - Interactive menu for Live/Beta versions
 
-### Key Components
-- `src/network/client.rs`: Config and download management
-- `src/io/util.rs`: Progress tracking and formatting
-- `src/io/file.rs`: File operations and path handling
-- `src/io/logging.rs`: Error logging system
-- `src/download/progress.rs`: Progress state management
+- **Verified Downloads** - MD5 checksum validation for every file
 
-## ⚙️ Configuration
-- **Retry Policy**: 3 attempts per CDN
-- **Timeouts**: 30s for metadata, extended for transfers
-- **Logging**: 
-  - Errors: `logs.log`
-  - URLs: `urls.txt` (optional)
-- **Progress**: Live window title updates (Windows)
+- **Smart Retry Logic** - 3 retry attempts per CDN with timeout protection
 
-## ❓ FAQ
-- **Download location?** User-selected at runtime
-- **Safe interruption?** Yes, via CTRL-C
-- **Why MD5?** Matches upstream checksums for integrity
+- **GZIP Support** - Handles compressed responses efficiently
 
-## 🧪 Development
-### Environment Setup
-- **Required**: Rust nightly (1.87.0-nightly+)
-- **Dependencies**: 
-  - `reqwest` (blocking)
-  - `indicatif`
-  - `flate2`
-  - `colored`
-  - `ctrlc`
-  - `serde_json`
+### 🛡️ Reliability
+- **Atomic Operations** - Thread-safe progress tracking
 
-### Build Optimization
-Release profile includes:
-- Strip symbols
-- Link-time optimization
-- Maximum optimization level
-- Single codegen unit
+- **Graceful Interrupt** - CTRL-C handling with summary display
 
-### Quick Start
-```bash
-cargo run --release
-```
+- **Comprehensive Logging** - Detailed error logging with timestamps
 
-## 🤝 Contributing
-Pull requests are welcome. Please ensure:
-- Focused changes
-- Clear documentation
-- Brief motivation explanation
+- **Validation Failures** - Auto-removes files with checksum mismatches
 
-## 📜 License
-Licensed under the **MIT License**. See [LICENSE](LICENSE).
+### 📂 File Management
+- **Smart Path Handling** - Cross-platform path support
+
+- **Auto-directory Creation** - Builds full directory trees as needed
+
+- **Clean Failed Downloads** - Removes corrupted files automatically
+
+### 💻 User Interface
+- **Color-coded Output** - Clear visual feedback (success/warning/error)
+
+- **Dynamic Title Updates** - Real-time progress in window title
+
+- **Clean Progress Display** - Simplified download status without clutter
+
+- **Formatted Duration** - Clear elapsed time display (HH:MM:SS)
+
+### ⚙️ Technical Details
+- **Streaming Downloads** - Memory-efficient chunked transfers
+
+- **HEAD Request Verification** - Pre-checks file availability
+
+- **Multi-threaded** - Safe concurrent progress tracking
+
+- **Configurable Timeouts** - 30s for metadata, 10000s for downloads
