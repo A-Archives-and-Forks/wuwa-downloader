@@ -1,5 +1,4 @@
 # 🌊 WuWa Downloader
-> Might be unarchived at a later date in case someone shares an authentication bypass that allows us to download from Kuro CDNs again.
 
 <br>
 
@@ -79,4 +78,5 @@ cargo build --release
 - **Multi-threaded** - Safe concurrent progress tracking
 
 - **Configurable Timeouts** - 30s for metadata, 10000s for downloads
+
 
