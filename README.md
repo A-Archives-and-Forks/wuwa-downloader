@@ -119,34 +119,5 @@ Pull requests are welcome. Please ensure:
 - Clear documentation
 - Brief motivation explanation
 
-<<<<<<< HEAD
 ## 📜 License
 Licensed under the **MIT License**. See [LICENSE](LICENSE).
-=======
-### 📂 File Management
-- **Smart Path Handling** - Cross-platform path support
-
-- **Auto-directory Creation** - Builds full directory trees as needed
-
-- **Clean Failed Downloads** - Removes corrupted files automatically
-
-### 💻 User Interface
-- **Color-coded Output** - Clear visual feedback (success/warning/error)
-
-- **Dynamic Title Updates** - Real-time progress in window title
-
-- **Clean Progress Display** - Simplified download status without clutter
-
-- **Formatted Duration** - Clear elapsed time display (HH:MM:SS)
-
-### ⚙️ Technical Details
-- **Streaming Downloads** - Memory-efficient chunked transfers
-
-- **HEAD Request Verification** - Pre-checks file availability
-
-- **Multi-threaded** - Safe concurrent progress tracking
-
-- **Configurable Timeouts** - 30s for metadata, 10000s for downloads
-
-
->>>>>>> cff75f997c28429b779a693fbda635393e49fb1f
