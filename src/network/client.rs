@@ -2,7 +2,7 @@ use colored::Colorize;
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
-use serde_json::{from_reader, from_str, Value};
+use serde_json::{Value, from_reader, from_str};
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
 use std::{
