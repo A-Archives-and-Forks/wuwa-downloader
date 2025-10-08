@@ -493,16 +493,27 @@ pub fn get_config(client: &Client) -> Result<Config, String> {
         .and_then(Value::as_str)
         .ok_or("Missing or invalid indexFile")?;
 
-    let cdn_list = config_data
-        .get("cdnList")
-        .and_then(Value::as_array)
-        .ok_or("Missing or invalid cdnList")?;
-
     let mut cdn_urls = Vec::new();
-    for cdn in cdn_list {
-        if let Some(url) = cdn.get("url").and_then(Value::as_str) {
-            cdn_urls.push(url.trim_end_matches('/').to_string());
+    if let Some(cdn_list) = config_data.get("cdnList").and_then(Value::as_array) {
+        for cdn in cdn_list {
+            if let Some(url) = cdn.get("url").and_then(Value::as_str) {
+                cdn_urls.push(url.trim_end_matches('/').to_string());
+            }
         }
+    } else {
+        println!("{} CDN list not found. Please enter CDN URLs manually.", Status::warning());
+        print!("{} Enter CDN URLs (comma-separated): ", Status::question());
+        io::stdout().flush().map_err(|e| format!("Failed to flush stdout: {}", e))?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).map_err(|e| format!("Failed to read input: {}", e))?;
+
+        cdn_urls = input
+            .trim()
+            .split(',')
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
     }
 
     if cdn_urls.is_empty() {
