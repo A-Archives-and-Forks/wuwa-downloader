@@ -1,12 +1,11 @@
 use colored::Colorize;
-use flate2::read::GzDecoder;
 use indicatif::ProgressBar;
 use reqwest::{Client, StatusCode};
 use serde_json::{Value, from_str};
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
 use std::{
-    io::{self, Read, Write},
+    io::{self, Write},
     path::Path,
     time::Duration,
 };
@@ -73,27 +72,10 @@ fn handle_http_error(log_file: &SharedLogFile, error_msg: &str) -> ! {
 }
 
 async fn decompress_if_gzipped(response: reqwest::Response) -> Result<String, String> {
-    let content_encoding = response
-        .headers()
-        .get("content-encoding")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let bytes = response
-        .bytes()
+    response
+        .text()
         .await
-        .map_err(|e| format!("Error reading response bytes: {}", e))?;
-
-    if content_encoding.contains("gzip") {
-        let mut gz = GzDecoder::new(bytes.as_ref());
-        let mut decompressed_text = String::new();
-        gz.read_to_string(&mut decompressed_text)
-            .map_err(|e| format!("Error decompressing: {}", e))?;
-        Ok(decompressed_text)
-    } else {
-        String::from_utf8(bytes.to_vec()).map_err(|e| format!("Error decoding response: {}", e))
-    }
+        .map_err(|e| format!("Error reading response text: {}", e))
 }
 
 pub async fn fetch_index(client: &Client, config: &Config, log_file: &SharedLogFile) -> Value {
@@ -148,6 +130,40 @@ async fn remove_partial_file(path: &Path) {
     }
 }
 
+fn rollback_counted_bytes(
+    progress: &DownloadProgress,
+    total_pb: &ProgressBar,
+    counted_bytes_for_file: &mut u64,
+) {
+    let amount = *counted_bytes_for_file;
+    if amount == 0 {
+        return;
+    }
+
+    let mut current = progress
+        .downloaded_bytes
+        .load(std::sync::atomic::Ordering::SeqCst);
+    loop {
+        let next = current.saturating_sub(amount);
+        match progress.downloaded_bytes.compare_exchange(
+            current,
+            next,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        ) {
+            Ok(_) => break,
+            Err(observed) => current = observed,
+        }
+    }
+
+    total_pb.set_position(
+        progress
+            .downloaded_bytes
+            .load(std::sync::atomic::Ordering::SeqCst),
+    );
+    *counted_bytes_for_file = 0;
+}
+
 async fn download_single_file(
     client: &Client,
     url: &str,
@@ -157,6 +173,7 @@ async fn download_single_file(
     total_pb: &ProgressBar,
     task_pb: &ProgressBar,
     allow_resume: bool,
+    counted_bytes_for_file: &mut u64,
 ) -> DownloadAttemptResult {
     let local_size = file_size(path).await;
     let use_range = allow_resume && local_size > 0;
@@ -230,6 +247,7 @@ async fn download_single_file(
         let size = chunk.len() as u64;
         task_pb.inc(size);
         total_pb.inc(size);
+        *counted_bytes_for_file += size;
         progress
             .downloaded_bytes
             .fetch_add(size, std::sync::atomic::Ordering::SeqCst);
@@ -253,6 +271,7 @@ async fn try_download_with_cdns(
     total_pb: &ProgressBar,
     task_pb: &ProgressBar,
     allow_resume: bool,
+    counted_bytes_for_file: &mut u64,
 ) -> CdnDownloadResult {
     let mut saw_range_unsupported = false;
     let mut last_error = "Unknown error".to_string();
@@ -280,6 +299,7 @@ async fn try_download_with_cdns(
                 total_pb,
                 task_pb,
                 allow_resume,
+                counted_bytes_for_file,
             )
             .await;
 
@@ -293,6 +313,10 @@ async fn try_download_with_cdns(
                 DownloadAttemptResult::Retryable(err) => {
                     last_error = err;
                     retries -= 1;
+                    if !allow_resume {
+                        rollback_counted_bytes(progress, total_pb, counted_bytes_for_file);
+                        task_pb.set_position(0);
+                    }
                     if retries > 0 {
                         task_pb.set_message(format!(
                             "retrying {} ({} left)",
@@ -304,6 +328,7 @@ async fn try_download_with_cdns(
                 DownloadAttemptResult::RangeNotSatisfiable => {
                     last_error = "Range not satisfiable, restarting file".to_string();
                     retries -= 1;
+                    rollback_counted_bytes(progress, total_pb, counted_bytes_for_file);
                     remove_partial_file(path).await;
                     task_pb.set_position(0);
                     task_pb.set_message(format!(
@@ -380,6 +405,7 @@ pub async fn download_file(
     let normalized_dest = dest.replace('\\', "/");
     let path = folder.join(&normalized_dest);
     let filename = get_filename(&normalized_dest);
+    let mut counted_bytes_for_file = 0_u64;
 
     if let Some(total) = expected_size {
         task_pb.set_length(total);
@@ -417,6 +443,7 @@ pub async fn download_file(
         total_pb,
         task_pb,
         true,
+        &mut counted_bytes_for_file,
     )
     .await;
 
@@ -428,6 +455,7 @@ pub async fn download_file(
                 "CDN does not support resume, restarting {}",
                 filename.yellow()
             ));
+            rollback_counted_bytes(progress, total_pb, &mut counted_bytes_for_file);
             remove_partial_file(&path).await;
             task_pb.set_position(0);
 
@@ -442,6 +470,7 @@ pub async fn download_file(
                 total_pb,
                 task_pb,
                 false,
+                &mut counted_bytes_for_file,
             )
             .await
             {
@@ -496,6 +525,7 @@ pub async fn download_file(
                     normalized_dest, expected, actual
                 ),
             );
+            rollback_counted_bytes(progress, total_pb, &mut counted_bytes_for_file);
             remove_partial_file(&path).await;
             task_pb.set_position(0);
             task_pb.set_message(format!(
@@ -514,6 +544,7 @@ pub async fn download_file(
                 total_pb,
                 task_pb,
                 false,
+                &mut counted_bytes_for_file,
             )
             .await
             {

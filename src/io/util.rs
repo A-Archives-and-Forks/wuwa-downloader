@@ -25,7 +25,7 @@ use crate::{
     },
     download::progress::{DownloadProgress, ProgressDisplay},
     io::{
-        file::{file_size, get_filename},
+        file::{check_existing_file, file_size, get_filename},
         logging::{SharedLogFile, log_error},
     },
     network::client::{build_download_url, download_file},
@@ -159,10 +159,22 @@ pub async fn calculate_total_size(
                             if let Ok(total_size) = len_str.parse::<u64>() {
                                 let local_path = folder.join(item.dest.replace('\\', "/"));
                                 let local_size = file_size(&local_path).await;
-                                let remaining = if local_size <= total_size {
-                                    total_size - local_size
-                                } else {
+                                let remaining = if local_size < total_size {
+                                    // Conservative estimate: partial files may still require full
+                                    // redownload when range requests are unsupported.
                                     total_size
+                                } else if local_size > total_size {
+                                    total_size
+                                } else if let Some(md5) = item.md5.as_deref() {
+                                    if check_existing_file(&local_path, Some(md5), Some(total_size))
+                                        .await
+                                    {
+                                        0
+                                    } else {
+                                        total_size
+                                    }
+                                } else {
+                                    0
                                 };
 
                                 size_hints.insert(item.dest.clone(), total_size);
