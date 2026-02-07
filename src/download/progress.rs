@@ -71,6 +71,10 @@ impl ProgressSlotPool {
     pub fn len(&self) -> usize {
         self.bars.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.bars.is_empty()
+    }
 }
 
 #[derive(Clone)]

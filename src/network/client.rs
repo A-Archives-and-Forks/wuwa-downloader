@@ -164,6 +164,7 @@ fn rollback_counted_bytes(
     *counted_bytes_for_file = 0;
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn download_single_file(
     client: &Client,
     url: &str,
@@ -260,6 +261,7 @@ async fn download_single_file(
     DownloadAttemptResult::Completed
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn try_download_with_cdns(
     client: &Client,
     config: &Config,
@@ -385,6 +387,7 @@ async fn try_download_with_cdns(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn download_file(
     client: &Client,
     config: &Config,
@@ -413,23 +416,23 @@ pub async fn download_file(
         task_pb.set_length(0);
     }
 
-    if let (Some(md5), Some(size)) = (expected_md5, expected_size) {
-        if check_existing_file(&path, Some(md5), Some(size)).await {
-            task_pb.set_position(size);
-            task_pb.set_message(format!("already valid: {}", filename.bright_purple()));
-            return true;
-        }
+    if let (Some(md5), Some(size)) = (expected_md5, expected_size)
+        && check_existing_file(&path, Some(md5), Some(size)).await
+    {
+        task_pb.set_position(size);
+        task_pb.set_message(format!("already valid: {}", filename.bright_purple()));
+        return true;
     }
 
-    if let Some(parent) = path.parent() {
-        if let Err(e) = tokio::fs::create_dir_all(parent).await {
-            log_error(
-                log_file,
-                &format!("Directory error for {}: {}", normalized_dest, e),
-            );
-            task_pb.set_message(format!("directory error: {}", e));
-            return false;
-        }
+    if let Some(parent) = path.parent()
+        && let Err(e) = tokio::fs::create_dir_all(parent).await
+    {
+        log_error(
+            log_file,
+            &format!("Directory error for {}: {}", normalized_dest, e),
+        );
+        task_pb.set_message(format!("directory error: {}", e));
+        return false;
     }
 
     let first_pass = try_download_with_cdns(

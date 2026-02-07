@@ -108,12 +108,12 @@ pub fn ask_concurrency() -> DownloadOptions {
             };
         }
 
-        if let Ok(parsed) = trimmed.parse::<usize>() {
-            if parsed > 0 {
-                return DownloadOptions {
-                    concurrency: parsed,
-                };
-            }
+        if let Ok(parsed) = trimmed.parse::<usize>()
+            && parsed > 0
+        {
+            return DownloadOptions {
+                concurrency: parsed,
+            };
         }
     }
 
@@ -154,35 +154,32 @@ pub async fn calculate_total_size(
                 .await
             {
                 Ok(response) => {
-                    if let Some(len) = response.headers().get("content-length") {
-                        if let Ok(len_str) = len.to_str() {
-                            if let Ok(total_size) = len_str.parse::<u64>() {
-                                let local_path = folder.join(item.dest.replace('\\', "/"));
-                                let local_size = file_size(&local_path).await;
-                                let remaining = if local_size < total_size {
-                                    // Conservative estimate: partial files may still require full
-                                    // redownload when range requests are unsupported.
-                                    total_size
-                                } else if local_size > total_size {
-                                    total_size
-                                } else if let Some(md5) = item.md5.as_deref() {
-                                    if check_existing_file(&local_path, Some(md5), Some(total_size))
-                                        .await
-                                    {
-                                        0
-                                    } else {
-                                        total_size
-                                    }
-                                } else {
-                                    0
-                                };
-
-                                size_hints.insert(item.dest.clone(), total_size);
-                                total_remaining_size += remaining;
-                                found_valid_url = true;
-                                break;
+                    if let Some(len) = response.headers().get("content-length")
+                        && let Ok(len_str) = len.to_str()
+                        && let Ok(total_size) = len_str.parse::<u64>()
+                    {
+                        let local_path = folder.join(item.dest.replace('\\', "/"));
+                        let local_size = file_size(&local_path).await;
+                        let remaining = if local_size < total_size {
+                            // Conservative estimate: partial files may still require full
+                            // redownload when range requests are unsupported.
+                            total_size
+                        } else if local_size > total_size {
+                            total_size
+                        } else if let Some(md5) = item.md5.as_deref() {
+                            if check_existing_file(&local_path, Some(md5), Some(total_size)).await {
+                                0
+                            } else {
+                                total_size
                             }
-                        }
+                        } else {
+                            0
+                        };
+
+                        size_hints.insert(item.dest.clone(), total_size);
+                        total_remaining_size += remaining;
+                        found_valid_url = true;
+                        break;
                     }
                 }
                 Err(e) => {
@@ -346,6 +343,7 @@ pub fn setup_ctrlc(should_stop: Arc<std::sync::atomic::AtomicBool>) {
     .unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn download_resources(
     client: Arc<Client>,
     config: Arc<Config>,

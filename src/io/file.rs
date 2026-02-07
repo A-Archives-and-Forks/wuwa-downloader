@@ -33,10 +33,10 @@ pub async fn check_existing_file(
         Err(_) => return false,
     };
 
-    if let Some(size) = expected_size {
-        if metadata.len() != size {
-            return false;
-        }
+    if let Some(size) = expected_size
+        && metadata.len() != size
+    {
+        return false;
     }
 
     if let Some(md5) = expected_md5 {
