@@ -1,13 +1,16 @@
 use colored::Colorize;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde_json::Value;
 use std::{
-    fs::{self, File},
-    io::{self, Write},
+    collections::HashMap,
+    fs, io,
+    io::Write,
+    path::{Path, PathBuf},
     sync::Arc,
     thread,
     time::{Duration, Instant},
 };
+use tokio::sync::Semaphore;
 
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
@@ -16,10 +19,16 @@ use std::process::Command;
 use winconsole::console::{clear, set_title};
 
 use crate::{
-    config::{cfg::Config, status::Status},
-    download::progress::DownloadProgress,
-    io::logging::log_error,
-    network::client::download_file,
+    config::{
+        cfg::{Config, DownloadOptions, ResourceItem},
+        status::Status,
+    },
+    download::progress::{DownloadProgress, ProgressDisplay},
+    io::{
+        file::{check_existing_file, file_size, get_filename},
+        logging::{SharedLogFile, log_error},
+    },
+    network::client::{build_download_url, download_file},
 };
 
 pub fn format_duration(duration: Duration) -> String {
@@ -58,63 +67,134 @@ fn log_url(url: &str) {
     }
 }
 
-pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Config) -> u64 {
-    use std::collections::HashMap;
-    
-    let mut total_size = 0;
+pub fn parse_resources(data: &Value) -> Result<Vec<ResourceItem>, String> {
+    let resources = data
+        .get("resource")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "No resources found in index file".to_string())?;
+
+    let mut parsed = Vec::with_capacity(resources.len());
+    for item in resources {
+        if let Some(dest) = item.get("dest").and_then(Value::as_str) {
+            parsed.push(ResourceItem {
+                dest: dest.to_string(),
+                md5: item
+                    .get("md5")
+                    .and_then(Value::as_str)
+                    .map(|md5| md5.to_string()),
+            });
+        }
+    }
+
+    Ok(parsed)
+}
+
+pub fn ask_concurrency() -> DownloadOptions {
+    let default_concurrency = DownloadOptions::default().concurrency;
+
+    print!(
+        "{} Enter concurrent downloads [default {}]: ",
+        Status::question(),
+        default_concurrency
+    );
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    if io::stdin().read_line(&mut input).is_ok() {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            return DownloadOptions {
+                concurrency: default_concurrency,
+            };
+        }
+
+        if let Ok(parsed) = trimmed.parse::<usize>()
+            && parsed > 0
+        {
+            return DownloadOptions {
+                concurrency: parsed,
+            };
+        }
+    }
+
+    println!(
+        "{} Invalid value, using default concurrency {}",
+        Status::warning(),
+        default_concurrency
+    );
+
+    DownloadOptions {
+        concurrency: default_concurrency,
+    }
+}
+
+pub async fn calculate_total_size(
+    resources: &[ResourceItem],
+    client: &Client,
+    config: &Config,
+    folder: &Path,
+) -> (u64, HashMap<String, u64>) {
+    let mut total_remaining_size = 0;
     let mut failed_urls = 0;
-    let mut url_cache: HashMap<String, u64> = HashMap::new();
+    let mut size_hints = HashMap::new();
 
     println!("{} Processing files...", Status::info());
 
     for (i, item) in resources.iter().enumerate() {
-        if let Some(dest) = item.get("dest").and_then(Value::as_str) {
-            let mut file_size = 0;
-            let mut found_valid_url = false;
+        let mut found_valid_url = false;
 
-            for base_url in &config.zip_bases {
-                let url = format!("{}/{}", base_url, dest);
-                log_url(&url);
-                
-                if let Some(&cached_size) = url_cache.get(&url) {
-                    file_size = cached_size;
-                    found_valid_url = true;
-                    break;
-                }
-                
-                match client
-                    .head(&url)
-                    .timeout(Duration::from_secs(15))
-                    .send()
-                {
-                    Ok(response) => {
-                        if let Some(len) = response.headers().get("content-length") {
-                            if let Ok(len_str) = len.to_str() {
-                                if let Ok(len_num) = len_str.parse::<u64>() {
-                                    file_size = len_num;
-                                    url_cache.insert(url, len_num);
-                                    found_valid_url = true;
-                                    break;
-                                }
+        for base_url in &config.zip_bases {
+            let url = build_download_url(base_url, &item.dest);
+            log_url(&url);
+
+            match client
+                .head(&url)
+                .timeout(Duration::from_secs(15))
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if let Some(len) = response.headers().get("content-length")
+                        && let Ok(len_str) = len.to_str()
+                        && let Ok(total_size) = len_str.parse::<u64>()
+                    {
+                        let local_path = folder.join(item.dest.replace('\\', "/"));
+                        let local_size = file_size(&local_path).await;
+                        let remaining = if local_size < total_size {
+                            // Conservative estimate: partial files may still require full
+                            // redownload when range requests are unsupported.
+                            total_size
+                        } else if local_size > total_size {
+                            total_size
+                        } else if let Some(md5) = item.md5.as_deref() {
+                            if check_existing_file(&local_path, Some(md5), Some(total_size)).await {
+                                0
+                            } else {
+                                total_size
                             }
-                        }
-                    }
-                    Err(e) => {
-                        println!("{} Failed to HEAD {}: {}", Status::warning(), url, e);
+                        } else {
+                            0
+                        };
+
+                        size_hints.insert(item.dest.clone(), total_size);
+                        total_remaining_size += remaining;
+                        found_valid_url = true;
+                        break;
                     }
                 }
+                Err(e) => {
+                    println!("{} Failed to HEAD {}: {}", Status::warning(), url, e);
+                }
             }
+        }
 
-            if found_valid_url {
-                total_size += file_size;
-            } else {
-                failed_urls += 1;
-                println!(
-                    "{} Could not determine size for file: {}",
-                    Status::error(),
-                    dest
-                );
-            }
+        if !found_valid_url {
+            failed_urls += 1;
+            println!(
+                "{} Could not determine size for file: {}",
+                Status::error(),
+                item.dest
+            );
         }
 
         if i % 10 == 0 {
@@ -136,9 +216,9 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
     }
 
     println!(
-        "{} Total download size: {}",
+        "{} Estimated remaining download size: {}",
         Status::info(),
-        bytes_to_human(total_size).cyan()
+        bytes_to_human(total_remaining_size).cyan()
     );
 
     #[cfg(not(target_os = "windows"))]
@@ -146,7 +226,7 @@ pub fn calculate_total_size(resources: &[Value], client: &Client, config: &Confi
     #[cfg(windows)]
     clear().unwrap();
 
-    total_size
+    (total_remaining_size, size_hints)
 }
 
 pub fn get_version(data: &Value, category: &str, version: &str) -> Result<String, String> {
@@ -156,7 +236,7 @@ pub fn get_version(data: &Value, category: &str, version: &str) -> Result<String
         .ok_or_else(|| format!("Missing {} URL", version))
 }
 
-pub fn exit_with_error(log_file: &File, error: &str) -> ! {
+pub fn exit_with_error(log_file: &SharedLogFile, error: &str) -> ! {
     log_error(log_file, error);
 
     #[cfg(windows)]
@@ -187,6 +267,7 @@ pub fn track_progress(
     (should_stop, success, progress)
 }
 
+#[allow(unused_variables)]
 pub fn start_title_thread(
     should_stop: Arc<std::sync::atomic::AtomicBool>,
     success: Arc<std::sync::atomic::AtomicUsize>,
@@ -216,9 +297,8 @@ pub fn start_title_thread(
                 (speed / 1_000, "KB/s")
             };
 
-            let remaining_files = total_files - current_success;
             let remaining_bytes = total_bytes.saturating_sub(downloaded_bytes);
-            let eta_secs = if speed > 0 && remaining_files > 0 {
+            let eta_secs = if speed > 0 {
                 remaining_bytes / speed
             } else {
                 0
@@ -226,24 +306,25 @@ pub fn start_title_thread(
             let eta_str = format_duration(Duration::from_secs(eta_secs));
 
             let progress_percent = if total_bytes > 0 {
-                format!(" ({}%)", (downloaded_bytes * 100 / total_bytes))
+                format!(" ({}%)", downloaded_bytes.saturating_mul(100) / total_bytes)
             } else {
                 String::new()
             };
 
-            let title = format!(
-                "Wuthering Waves Downloader - {}/{} files - Total Downloaded: {}{} - Speed: {}{} - Total ETA: {}",
-                current_success,
-                total_files,
-                bytes_to_human(downloaded_bytes),
-                progress_percent,
-                speed_value,
-                speed_unit,
-                eta_str
-            );
-
             #[cfg(windows)]
-            set_title(&title).unwrap();
+            {
+                let title = format!(
+                    "Wuthering Waves Downloader - {}/{} files - Downloaded: {}{} - Speed: {}{} - ETA: {}",
+                    current_success,
+                    total_files,
+                    bytes_to_human(downloaded_bytes),
+                    progress_percent,
+                    speed_value,
+                    speed_unit,
+                    eta_str
+                );
+                set_title(&title).unwrap();
+            }
 
             thread::sleep(Duration::from_secs(1));
         }
@@ -262,35 +343,112 @@ pub fn setup_ctrlc(should_stop: Arc<std::sync::atomic::AtomicBool>) {
     .unwrap();
 }
 
-pub fn download_resources(
-    client: &Client,
-    config: &Config,
-    resources: &[Value],
-    folder: &std::path::Path,
-    log_file: &File,
-    should_stop: &Arc<std::sync::atomic::AtomicBool>,
-    progress: &DownloadProgress,
-    success: &Arc<std::sync::atomic::AtomicUsize>,
+#[allow(clippy::too_many_arguments)]
+pub async fn download_resources(
+    client: Arc<Client>,
+    config: Arc<Config>,
+    resources: Vec<ResourceItem>,
+    size_hints: Arc<HashMap<String, u64>>,
+    folder: PathBuf,
+    log_file: SharedLogFile,
+    should_stop: Arc<std::sync::atomic::AtomicBool>,
+    progress: DownloadProgress,
+    success: Arc<std::sync::atomic::AtomicUsize>,
+    options: DownloadOptions,
 ) {
+    let concurrency = options.concurrency.max(1);
+    let total_size = progress
+        .total_bytes
+        .load(std::sync::atomic::Ordering::SeqCst);
+
+    let display = Arc::new(ProgressDisplay::new(concurrency, total_size));
+    let semaphore = Arc::new(Semaphore::new(concurrency));
+    let mut handles = Vec::new();
+
     for item in resources {
         if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
             break;
         }
 
-        if let Some(dest) = item.get("dest").and_then(Value::as_str) {
-            let md5 = item.get("md5").and_then(Value::as_str);
-            if download_file(
-                client,
-                config,
-                dest,
-                folder,
-                md5,
-                log_file,
-                should_stop,
-                progress,
-            ) {
-                success.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(permit) => permit,
+            Err(_) => break,
+        };
+
+        let slot = display.slot_pool.acquire_slot().await;
+
+        let client = client.clone();
+        let config = config.clone();
+        let folder = folder.clone();
+        let log_file = log_file.clone();
+        let should_stop = should_stop.clone();
+        let progress = progress.clone();
+        let success = success.clone();
+        let size_hints = size_hints.clone();
+        let display = display.clone();
+
+        let handle = tokio::spawn(async move {
+            let task_bar = display.slot_pool.bar(slot);
+            let filename = get_filename(&item.dest);
+            let expected_size = size_hints.get(&item.dest).copied();
+
+            task_bar.set_message(format!("downloading {}", filename.clone().cyan()));
+            task_bar.set_position(0);
+            if let Some(size) = expected_size {
+                task_bar.set_length(size);
+            } else {
+                task_bar.set_length(0);
             }
-        }
+
+            let ok = download_file(
+                &client,
+                &config,
+                &item.dest,
+                &folder,
+                item.md5.as_deref(),
+                expected_size,
+                &log_file,
+                &should_stop,
+                &progress,
+                &display.total_bar,
+                &task_bar,
+            )
+            .await;
+
+            if ok {
+                success.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                task_bar.set_message(format!("done {}", filename.green()));
+            } else if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+                task_bar.set_message(format!("stopped {}", filename.yellow()));
+            } else {
+                task_bar.set_message(format!("failed {}", filename.red()));
+            }
+
+            task_bar.set_position(0);
+            task_bar.set_length(0);
+            task_bar.set_message("idle");
+
+            display.slot_pool.release_slot(slot).await;
+            drop(permit);
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        let _ = handle.await;
+    }
+
+    for slot in 0..display.slot_pool.len() {
+        display.slot_pool.bar(slot).finish_with_message("idle");
+    }
+
+    if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+        display.total_bar.finish_with_message("stopped");
+    } else {
+        display.total_bar.finish_with_message(format!(
+            "completed {}",
+            bytes_to_human(progress.downloaded())
+        ));
     }
 }
