@@ -16,6 +16,7 @@ High-performance, resilient downloader for Wuthering Waves with multi-CDN fallba
 [▶️ Usage](#️-usage) •
 [🔍 Technical Details](#-technical-details) •
 [⚙️ Configuration](#️-configuration) •
+[📚 Documentation](https://deepwiki.com/yuhkix/wuwa-downloader/) •
 [❓ FAQ](#-faq) •
 [🧪 Development](#-development) •
 [🤝 Contributing](#-contributing)
@@ -84,6 +85,9 @@ cargo build --release
   - Errors: `logs.log`
   - URLs: `urls.txt` (optional)
 - **Progress**: Live window title updates (Windows)
+
+## 📚 Documentation
+For detailed guides, workflow overview, and deeper technical explanations, see the [official documentation](https://deepwiki.com/yuhkix/wuwa-downloader/).
 
 ## ❓ FAQ
 - **Download location?** User-selected at runtime

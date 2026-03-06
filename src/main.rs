@@ -49,6 +49,11 @@ use wuwa_downloader::{
 #[tokio::main]
 async fn main() {
     #[cfg(windows)]
+    clear().unwrap();
+    #[cfg(not(target_os = "windows"))]
+    Command::new("clear").status().unwrap();
+
+    #[cfg(windows)]
     {
         set_title("Wuthering Waves Downloader").unwrap();
         enable_ansi_support();
